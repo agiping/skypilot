@@ -108,8 +108,9 @@ class LeastConnectionsPolicy(LoadBalancingPolicy):
 
     def release_connection(self, replica: str) -> None:
         # Decrement the connection count for a replica when the connection is closed
-        if replica in self.connections_count:
-            self.connections_count[replica] = max(0, self.connections_count[replica] - 1)
+        with self.lock:
+            if replica in self.connections_count:
+                self.connections_count[replica] = max(0, self.connections_count[replica] - 1)
 
 
 class EwmaPolicy(LoadBalancingPolicy):
