@@ -166,17 +166,19 @@ def _get_cloud_dependencies_installation_commands(
             for cloud in global_user_state.get_enabled_clouds()):
         commands.append(
             # Install k8s + skypilot dependencies
-            'sudo bash -c "apt update && apt install curl socat netcat -y" && '
+            'sudo bash -c "if '
+            '! command -v curl &> /dev/null || '
+            '! command -v socat &> /dev/null || '
+            '! command -v netcat &> /dev/null; '
+            'then apt update && apt install curl socat netcat -y; '
+            'fi" && '
             # Install kubectl
-            # 'curl -LO "https://dl.k8s.io/release/$(curl -L -s '
-            # 'https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && '
-            # 'sudo install -o root -g root -m 0755 '
-            # 'kubectl /usr/local/bin/kubectl && '
-            # Install kubectl with mirrors hub in China to speed up the download
-            'curl -LO "https://mirrors.tuna.tsinghua.edu.cn/kubernetes/apt/pool/kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb" && '
+            # Check if kubectl is installed and install from Tsinghua University mirror if not
+            '(command -v kubectl &>/dev/null || '
+            '(curl -LO "https://mirrors.tuna.tsinghua.edu.cn/kubernetes/apt/pool/kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb" && '
             'sudo dpkg -i kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb && '
-            'rm kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb && '
-            )
+            'rm kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb)) && ')
+
     return commands
 
 
@@ -236,7 +238,7 @@ def download_and_stream_latest_job_log(
 
             # Print the logs to the console.
             try:
-                with open(log_file) as f:
+                with open(log_file, 'r', encoding='utf-8') as f:
                     print(f.read())
             except FileNotFoundError:
                 logger.error('Failed to find the logs for the user '
