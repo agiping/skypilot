@@ -6,6 +6,7 @@ import time
 import fastapi
 import requests
 import uvicorn
+import httpx
 
 from sky import sky_logging
 from sky.serve import constants
@@ -16,14 +17,14 @@ logger = sky_logging.init_logger(__name__)
 
 
 class SkyServeLoadBalancer:
-    """SkyServeLoadBalancer: redirect incoming traffic.
+    """SkyServeLoadBalancer: proxy incoming traffic.
 
-    This class accept any traffic to the controller and redirect it
+    This class accepts any traffic to the controller and proxies it
     to the appropriate endpoint replica according to the load balancing
     policy.
 
-    NOTE: HTTP redirect is used. Thus, when using `curl`, be sure to use
-    `curl -L`.
+    NOTE: The original version of SkyServe applies HTTP-redirection, 
+    in this version, SkyServe proxies the request instead of redirecting it.
     """
 
     def __init__(self, controller_url: str, load_balancer_port: int) -> None:
@@ -77,7 +78,27 @@ class SkyServeLoadBalancer:
                         ready_replica_urls)
             time.sleep(constants.LB_CONTROLLER_SYNC_INTERVAL_SECONDS)
 
-    async def _redirect_handler(self, request: fastapi.Request):
+    async def _proxy_request(self, request: fastapi.Request, url: str) -> fastapi.responses.Response:
+            """Proxy the incoming request to the selected service replica.
+
+            Args:
+                request: The incoming request.
+                url: The URL of the selected service replica.
+
+            Returns:
+                The response from the service replica.
+            """
+            method = request.method
+            headers = {key: value for key, value in request.headers.items()}
+            body = await request.body()
+            # TODO (Ping Zhang) We may consider reusing the same httpx.AsyncClient for better performance.
+            # In the reuse case, we should manually close the client after the service is down.
+            async with httpx.AsyncClient() as client:
+                resp = await client.request(method, url, headers=headers, content=body)
+                return resp
+
+    async def _handle_request(self, request: fastapi.Request):
+        """Handle incoming requests by proxying them to service replicas."""
         self._request_aggregator.add(request)
         ready_replica_url = self._load_balancing_policy.select_replica(request)
 
@@ -87,13 +108,25 @@ class SkyServeLoadBalancer:
                                         'Use "sky serve status [SERVICE_NAME]" '
                                         'to check the replica status.')
 
-        path = f'{ready_replica_url}{request.url.path}'
-        logger.info(f'Redirecting request to {path}')
-        return fastapi.responses.RedirectResponse(url=path)
+        # Construct the full URL to which the request will be proxied
+        path = request.url.path
+        query_string = request.url.query
+        full_url = f'{ready_replica_url}{path}'
+        if query_string:
+            full_url += f'?{query_string}'
+
+        logger.info(f'Proxying request to {full_url}')
+        response = await self._proxy_request(request, full_url)
+
+        return httpx.Response(
+            status_code=response.status_code,
+            content=response.content,
+            headers=response.headers
+        )
 
     def run(self):
         self._app.add_api_route('/{path:path}',
-                                self._redirect_handler,
+                                self._handle_request,
                                 methods=['GET', 'POST', 'PUT', 'DELETE'])
 
         @self._app.on_event('startup')

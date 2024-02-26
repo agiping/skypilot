@@ -70,6 +70,8 @@ class LeastConnectionsPolicy(LoadBalancingPolicy):
     """Least Connections load balancing policy.
     This policy selects the replica with the least number of connections.
     TODO(Ping Zhang): Logging Efficiency
+    TODO(Ping Zhang): We will test the performance of this policy on SkyServe 
+    when 'redirection-to-proxying' is finished.
      """
 
     def __init__(self, *args, **kwargs) -> None:
