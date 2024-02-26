@@ -100,11 +100,17 @@ class SkyServeLoadBalancer:
                 if stream:
                     async with client.stream(method, url, headers=headers, content=body) as response:
                         async def streaming_content():
-                            async for chunk in response.aiter_bytes():
-                                yield chunk
+                            try:
+                                async for chunk in response.aiter_bytes():
+                                    yield chunk
+                            except Exception as e:
+                                logger.error(f"Error streaming response: {e}")
+                            finally:
+                                await response.aclose()
                             # streaming call, call back function right after the end of streaming
                             if callback:
                                 callback()
+
                         return fastapi.responses.StreamingResponse(streaming_content(), status_code=response.status_code,
                                                                headers=dict(response.headers))
                 else:
