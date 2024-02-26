@@ -33,12 +33,14 @@ class SkyServeLoadBalancer:
         Args:
             controller_url: The URL of the controller.
             load_balancer_port: The port where the load balancer listens to.
+        
+        TODO(Ping Zhang): We should support configuration for load balancing policy.
         """
         self._app = fastapi.FastAPI()
         self._controller_url = controller_url
         self._load_balancer_port = load_balancer_port
         self._load_balancing_policy: lb_policies.LoadBalancingPolicy = (
-            lb_policies.RoundRobinPolicy())
+            lb_policies.LeastConnectionsPolicy())
         self._request_aggregator: serve_utils.RequestsAggregator = (
             serve_utils.RequestTimestamp())
 
@@ -78,7 +80,8 @@ class SkyServeLoadBalancer:
                         ready_replica_urls)
             time.sleep(constants.LB_CONTROLLER_SYNC_INTERVAL_SECONDS)
 
-    async def _proxy_request(self, request: fastapi.Request, url: str) -> fastapi.responses.Response:
+    async def _proxy_request(self, request: fastapi.Request, url: str, 
+                             stream: bool = False, callback=None) -> fastapi.responses.Response:
             """Proxy the incoming request to the selected service replica.
 
             Args:
@@ -94,8 +97,23 @@ class SkyServeLoadBalancer:
             # TODO (Ping Zhang) We may consider reusing the same httpx.AsyncClient for better performance.
             # In the reuse case, we should manually close the client after the service is down.
             async with httpx.AsyncClient() as client:
-                resp = await client.request(method, url, headers=headers, content=body)
-                return resp
+                if stream:
+                    response: httpx.Response = await client.stream(method, url, headers=headers, content=body)
+                    async def streaming_content():
+                        async for chunk in response.aiter_bytes():
+                            yield chunk
+                        # streaming call, call back function right after the end of streaming
+                        if callback:
+                            await callback()  
+                    return fastapi.responses.StreamingResponse(streaming_content(), status_code=response.status_code,
+                                                               headers=dict(response.headers))
+                else:
+                    response: httpx.Response= await client.request(method, url, headers=headers, content=body)
+                    # non-streaming call, call back function right after the response is received
+                    if callback:
+                        await callback()
+                    return fastapi.responses.Response(content=response.content, status_code=response.status_code,
+                                                      headers=dict(response.headers))
 
     async def _handle_request(self, request: fastapi.Request):
         """Handle incoming requests by proxying them to service replicas."""
@@ -109,20 +127,20 @@ class SkyServeLoadBalancer:
                                         'to check the replica status.')
 
         # Construct the full URL to which the request will be proxied
+        is_stream = False
         path = request.url.path
+        if path.endswith("generate_stream"):
+            is_stream = True
+
         query_string = request.url.query
-        full_url = f'{ready_replica_url}{path}'
+        target_url = f'{ready_replica_url}{path}'
         if query_string:
-            full_url += f'?{query_string}'
+            target_url += f'?{query_string}'
 
-        logger.info(f'Proxying request to {full_url}')
-        response = await self._proxy_request(request, full_url)
+        logger.info(f'Proxying request to {target_url}')
 
-        return httpx.Response(
-            status_code=response.status_code,
-            content=response.content,
-            headers=response.headers
-        )
+        return await self._proxy_request(request, target_url, stream=is_stream, 
+                                         callback=lambda: self._load_balancing_policy.release_connection(ready_replica_url))
 
     def run(self):
         self._app.add_api_route('/{path:path}',
