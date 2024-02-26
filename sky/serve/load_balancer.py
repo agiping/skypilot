@@ -98,20 +98,20 @@ class SkyServeLoadBalancer:
             # In the reuse case, we should manually close the client after the service is down.
             async with httpx.AsyncClient() as client:
                 if stream:
-                    response: httpx.Response = await client.stream(method, url, headers=headers, content=body)
-                    async def streaming_content():
-                        async for chunk in response.aiter_bytes():
-                            yield chunk
-                        # streaming call, call back function right after the end of streaming
-                        if callback:
-                            await callback()  
-                    return fastapi.responses.StreamingResponse(streaming_content(), status_code=response.status_code,
+                    async with client.stream(method, url, headers=headers, content=body) as response:
+                        async def streaming_content():
+                            async for chunk in response.aiter_bytes():
+                                yield chunk
+                            # streaming call, call back function right after the end of streaming
+                            if callback:
+                                callback()
+                        return fastapi.responses.StreamingResponse(streaming_content(), status_code=response.status_code,
                                                                headers=dict(response.headers))
                 else:
-                    response: httpx.Response= await client.request(method, url, headers=headers, content=body)
+                    response = await client.request(method, url, headers=headers, content=body)
                     # non-streaming call, call back function right after the response is received
                     if callback:
-                        await callback()
+                        callback()
                     return fastapi.responses.Response(content=response.content, status_code=response.status_code,
                                                       headers=dict(response.headers))
 
