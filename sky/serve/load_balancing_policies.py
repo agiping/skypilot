@@ -91,6 +91,7 @@ class LeastConnectionsPolicy(LoadBalancingPolicy):
                 return None
             # Select the replica with the least number of connections
             # TODO(Ping Zhang): use min-heap to optimize the performance
+            logger.info(f'connections_count: {self.connections_count}')
             selected_replica = min(self.ready_replicas, key=lambda replica: self.connections_count[replica])
             
             # Increment the connection count for the selected replica
