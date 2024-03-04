@@ -94,9 +94,15 @@ class SkyServeLoadBalancer:
             method = request.method
             headers = {key: value for key, value in request.headers.items()}
             body = await request.body()
+            
             # TODO (Ping Zhang) We may consider reusing the same httpx.AsyncClient for better performance.
             # In the reuse case, we should manually close the client after the service is down.
-            async with httpx.AsyncClient() as client:
+            
+            # TODO (Ping Zhang) Connection timeout: 10s, Read timeout: 360s, 
+            # fine-tune the timeout in the view of request chain.
+            
+            timeout = httpx.Timeout(10.0, read=360.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 if stream:
                     async with client.stream(method, url, headers=headers, content=body) as response:
                         status_code = response.status_code
