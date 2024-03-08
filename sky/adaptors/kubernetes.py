@@ -63,9 +63,7 @@ def _load_config():
         # See issue: https://github.com/skypilot-org/skypilot/issues/2287
         os.environ['KUBERNETES_SERVICE_HOST'] = 'kubernetes.default.svc'
         os.environ['KUBERNETES_SERVICE_PORT'] = '443'
-        # TODO(romilb) - THIS IS HACK! FIX THIS BEFORE MERGING.
-        raise kubernetes.config.config_exception.ConfigException
-        # kubernetes.config.load_incluster_config()
+        kubernetes.config.load_incluster_config()
     except kubernetes.config.config_exception.ConfigException:
         try:
             kubernetes.config.load_kube_config()
@@ -83,7 +81,8 @@ def _load_config():
             else:
                 err_str = (
                     'Failed to load Kubernetes configuration. '
-                    f'Please check if your kubeconfig file is valid.{suffix}')
+                    'Please check if your kubeconfig file exists at '
+                    f'~/.kube/config and is valid.{suffix}')
             err_str += '\nTo disable Kubernetes for SkyPilot: run `sky check`.'
             with ux_utils.print_exception_no_traceback():
                 raise ValueError(err_str) from None
