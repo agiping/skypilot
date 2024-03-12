@@ -64,4 +64,4 @@ ENV PYTHONUNBUFFERED=1
 
 # Set WORKDIR and initialize conda for sky user
 WORKDIR /home/sky
-RUN conda init
+#RUN conda init
