@@ -5,7 +5,7 @@ FROM continuumio/miniconda3:23.3.1-0
 
 # Initialize conda for root user, install ssh and other local dependencies
 RUN apt update -y && \
-    apt install gcc rsync sudo patch openssh-server pciutils nano fuse socat netcat -y && \
+    apt install curl gcc rsync sudo patch openssh-server pciutils nano fuse socat netcat -y && \
     rm -rf /var/lib/apt/lists/* && \
     apt remove -y python3 && \
     conda init
@@ -27,10 +27,11 @@ USER sky
 
 # Install SkyPilot pip dependencies with a mirror to speed up download
 RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    wheel Click colorama cryptography jinja2 jsonschema \
+    wheel httpx Click colorama cryptography jinja2 jsonschema \
     networkx oauth2client pandas pendulum PrettyTable \
     rich tabulate filelock \
     packaging 'protobuf<4.0.0' pulp \
+    'pydantic<2.0,>=1.10.8' python-dotenv \
     pycryptodome==3.12.0 \
     docker kubernetes==28.1.0 \
     -U boto3==1.34.46 # Ray base image has a stale boto3 version - https://github.com/skypilot-org/skypilot/issues/3158
