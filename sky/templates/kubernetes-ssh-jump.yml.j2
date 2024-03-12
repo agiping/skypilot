@@ -12,11 +12,11 @@ pod_spec:
           - name: secret-volume
             secret:
                 secretName: {{ secret }}
+        imagePullSecrets:
+          - name: baichuan-inference-service
         containers:
           - name: {{ name }}
             imagePullPolicy: IfNotPresent
-            imagePullSecrets:
-              - name: baichuan-inference-service
             image: {{ image }}
             command: ["python3", "-u", "/skypilot/sky/utils/kubernetes/ssh_jump_lifecycle_manager.py"]
             ports:
