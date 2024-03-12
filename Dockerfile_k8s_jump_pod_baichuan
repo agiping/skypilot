@@ -37,7 +37,8 @@ RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple \
     -U boto3==1.34.46 # Ray base image has a stale boto3 version - https://github.com/skypilot-org/skypilot/issues/3158
 
 # Add /home/sky/.local/bin/ to PATH
-RUN echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc
+# RUN echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc
+ENV PATH="${PATH}:/home/sky/.local/bin"
 
 # Copy SkyPilot code base. This is required for the ssh jump pod to find the
 # lifecycle management scripts
