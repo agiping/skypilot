@@ -15,7 +15,7 @@ RUN sudo rm -rf /etc/apt/sources.list.d/cuda* && \
 # We install kubectl in the base image to speed up serve up process
 RUN if ! command -v kubectl &>/dev/null; then \
         curl -LO "https://mirrors.tuna.tsinghua.edu.cn/kubernetes/apt/pool/kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb" && \
-        dpkg -i kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb && \
+        sudo dpkg -i kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb && \
         rm kubectl_1.26.8-00_amd64_0f58d6402fb9ae6ea48fbfd03e729f7b93212224d12a756aba1a4ec32e171f8b.deb; \
     fi
 
