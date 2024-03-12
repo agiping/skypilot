@@ -42,10 +42,10 @@ RUN sudo mkdir -p /var/run/sshd && \
 
 # Install SkyPilot pip dependencies with a mirror to speed up download
 RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple \
-    wheel httpx Click colorama cryptography jinja2 jsonschema \
+    wheel httpx Click colorama 'cryptography<40,>=0.6' jinja2 jsonschema \
     networkx oauth2client pandas pendulum PrettyTable \
     rich tabulate filelock \
-    packaging 'protobuf<4.0.0' pulp \
+    'packaging<22.0,>=20.9' 'protobuf<4.0.0' pulp \
     'pydantic<2.0,>=1.10.8' python-dotenv \
     pycryptodome==3.12.0 \
     docker kubernetes==28.1.0 \
