@@ -15,4 +15,5 @@ echo "Building image: $TAG"
 # Navigate to the root of the project (inferred from git)
 cd "$(git rev-parse --show-toplevel)"
 
-docker buildx build --push --platform linux/amd64 -t $TAG -f Dockerfile_ha .
+docker build -t $TAG -f Dockerfile_ha .
+docker push $TAG
