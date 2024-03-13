@@ -1,4 +1,4 @@
-FROM us-central1-docker.pkg.dev/skypilot-375900/skypilotk8s/skypilot:20240221
+FROM berkeleyskypilot/skypilot-k8s:latest
 
 COPY --chown=sky . /skypilot/sky/
 
