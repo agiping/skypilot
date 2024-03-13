@@ -1,7 +1,10 @@
 # TODO(romilb) - The base image used here (ray) is very large (11.4GB).
 #  as a result, this built image is about 13.5GB. We need to pick a lighter base
 #  image.
-FROM rayproject/ray:2.4.0-py310-gpu
+FROM rayproject/ray:2.9.3.b8d0cb-py310-gpu
+
+# We replace the source list with Mainland China addresses
+COPY ./baichuan/sources.list /etc/apt/sources.list
 
 # Initialize conda for root user, install ssh and other local dependencies
 # We remove cuda lists to avoid conflicts with the cuda version installed by ray
@@ -64,4 +67,4 @@ ENV PYTHONUNBUFFERED=1
 
 # Set WORKDIR and initialize conda for sky user
 WORKDIR /home/sky
-#RUN conda init
+RUN conda init
