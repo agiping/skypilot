@@ -12,3 +12,4 @@ sky/clouds/service_catalog/data_fetchers/*.csv
 .vscode/
 .idea/
 
+sky/baichuan/check_upstream_repo.sh
