@@ -91,7 +91,10 @@ WAIT_HEAD_NODE_IP_MAX_ATTEMPTS = 3
 # Fixed IP addresses are used to avoid DNS lookup blocking the check, for
 # machine with no internet connection.
 # Refer to: https://stackoverflow.com/questions/3764291/how-can-i-see-if-theres-an-available-and-active-network-connection-in-python # pylint: disable=line-too-long
-_TEST_IP_LIST = ['https://1.1.1.1', 'https://8.8.8.8']
+
+# (TODO) Ping Zhang: we will find a proper address for checking in mainland China.
+#_TEST_IP_LIST = ['https://1.1.1.1', 'https://8.8.8.8']
+_TEST_IP_LIST = []
 
 # Allow each CPU thread take 2 tasks.
 # Note: This value cannot be too small, otherwise OOM issue may occur.
@@ -1415,9 +1418,7 @@ def get_node_ips(cluster_yaml: str,
     # Check the network connection first to avoid long hanging time for
     # ray get-head-ip below, if a long-lasting network connection failure
     # happens.
-    print("We just skip the network check here")
-    # (TODO)(Ping Zhang) We will find an proper address for this later
-    #check_network_connection()
+    check_network_connection()
     head_ip = _query_head_ip_with_retries(cluster_yaml,
                                           max_attempts=head_ip_max_attempts)
     head_ip_list = [head_ip]
