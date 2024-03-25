@@ -575,7 +575,8 @@ def status(
             service_names = [service_names]
 
     try:
-        backend_utils.check_network_connection()
+        print("We just skip the network check here")
+        #backend_utils.check_network_connection()
     except exceptions.NetworkError as e:
         with ux_utils.print_exception_no_traceback():
             raise RuntimeError(

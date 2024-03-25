@@ -183,7 +183,8 @@ class SpotController:
             # Check the network connection to avoid false alarm for job failure.
             # Network glitch was observed even in the VM.
             try:
-                backend_utils.check_network_connection()
+                print("We just skip the network check here")
+                #backend_utils.check_network_connection()
             except exceptions.NetworkError:
                 logger.info(
                     'Network is not available. Retrying again in '

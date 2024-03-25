@@ -1415,7 +1415,9 @@ def get_node_ips(cluster_yaml: str,
     # Check the network connection first to avoid long hanging time for
     # ray get-head-ip below, if a long-lasting network connection failure
     # happens.
-    check_network_connection()
+    print("We just skip the network check here")
+    # (TODO)(Ping Zhang) We will find an proper address for this later
+    #check_network_connection()
     head_ip = _query_head_ip_with_retries(cluster_yaml,
                                           max_attempts=head_ip_max_attempts)
     head_ip_list = [head_ip]

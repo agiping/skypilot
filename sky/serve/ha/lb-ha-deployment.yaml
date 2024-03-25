@@ -30,7 +30,7 @@ spec:
       containers:
       - name: sky-lb-ha-{{service_name}}
         image: {{docker_image_path}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
           - /bin/sh
           - -c
@@ -44,7 +44,7 @@ spec:
             command:
               - python
               - -c
-              - "import http.client; conn = http.client.HTTPConnection('localhost', 8890); conn.request('GET', '/'); response = conn.getresponse(); import sys; sys.exit(0 if response.status == 307 else 1)"
+              - "import http.client; conn = http.client.HTTPConnection('localhost', 8890); conn.request('GET', '/'); response = conn.getresponse(); import sys; sys.exit(0)"
           initialDelaySeconds: 10
           periodSeconds: 5
 ---

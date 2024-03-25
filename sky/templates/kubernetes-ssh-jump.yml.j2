@@ -45,6 +45,21 @@ pod_spec:
                 # seconds
                 value: "60"
         terminationGracePeriodSeconds: 0
+        tolerations:
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 300
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          operator: Exists
+          tolerationSeconds: 300
+        - effect: NoSchedule
+          key: search
+          operator: Exists
+        - effect: NoSchedule
+          key: onlyping
+          operator: Exists
 service_spec:
     apiVersion: v1
     kind: Service

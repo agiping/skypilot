@@ -6,4 +6,4 @@ COPY --chown=sky . /skypilot/sky/
 ENV PYTHONUNBUFFERED=1
 
 # Install SkyPilot
-RUN cd /skypilot/sky && pip install -e .[kubernetes] && pip install uvicorn fastapi httpx
+RUN cd /skypilot/sky && pip install -e .[kubernetes] && pip install uvicorn fastapi httpx -i https://pypi.tuna.tsinghua.edu.cn/simple
