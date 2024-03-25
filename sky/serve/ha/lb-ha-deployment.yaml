@@ -75,8 +75,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: test-ingress-host.skypilot.prod.ppio
-    http:
+  - http:
       paths:
       - path: /sky-lb-ha-{{service_name}}(/|$)(.*)
         pathType: ImplementationSpecific
