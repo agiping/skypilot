@@ -62,10 +62,11 @@ fi
 
 # Build docker image for load balancer
 echo -e "\n\n=== Stage 2: Load Balancer Image Building ==="
-docker_image_path=${docker_image_repo}/skypilot_lb_ha:$docker_image_id
-echo Building the load balancer image and push it to $docker_image_path
-docker build -t $docker_image_path -f $base_dir/Dockerfile_ha $base_dir
-docker push $docker_image_path
+#docker_image_path=${docker_image_repo}/skypilot_lb_ha:$docker_image_id
+docker_image_path=$docker_image_repo
+#echo Building the load balancer image and push it to $docker_image_path
+#docker build -t $docker_image_path -f $base_dir/Dockerfile_ha $base_dir
+#docker push $docker_image_path
 
 # Create or update the load balancer
 # Replace the variables in the load balancer deployment file
