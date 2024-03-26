@@ -27,6 +27,8 @@ spec:
                       values:
                         - sky-lb-ha-{{service_name}}
                 topologyKey: kubernetes.io/hostname
+      imagePullSecrets:
+          - name: baichuan-inference-service
       containers:
       - name: sky-lb-ha-{{service_name}}
         image: {{docker_image_path}}
