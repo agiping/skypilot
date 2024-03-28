@@ -269,13 +269,15 @@ available_node_types:
           - mountPath: /dev/fuse    # Required for FUSE mounting
             name: dev-fuse
           securityContext:          # Required for FUSE mounting. TODO(romilb): See if we can grant a reduced set of privileges.
-            privileged: true
+            privileged: false
           resources:
             requests:
               cpu: {{cpus}}
-              memory: {{memory}}G
+              memory: {{memory}}Gi
               nvidia.com/gpu: {{accelerator_count}}
             limits:
+              cpu: {{cpus}}
+              memory: {{memory}}Gi
               nvidia.com/gpu: {{accelerator_count}} # Limits need to be defined for GPU requests
 
 setup_commands:
