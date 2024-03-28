@@ -444,7 +444,7 @@ class RayCodeGen:
                     return ray.util.get_node_ip_address()
                 gang_scheduling_id_to_ip = ray.get([
                     check_ip.options(
-                            num_cpus={task_cpu_demand},
+                            num_gpus=2,
                             scheduling_strategy=ray.util.scheduling_strategies.PlacementGroupSchedulingStrategy(
                                 placement_group=pg,
                                 placement_group_bundle_index=i
