@@ -405,6 +405,7 @@ class RayCodeGen:
                     .options(
                         name='setup',
                         num_cpus=_SETUP_CPUS,
+                        num_gpus=2,
                         scheduling_strategy=ray.util.scheduling_strategies.PlacementGroupSchedulingStrategy(
                             placement_group=setup_pg,
                             placement_group_bundle_index=i)
@@ -445,6 +446,7 @@ class RayCodeGen:
                 gang_scheduling_id_to_ip = ray.get([
                     check_ip.options(
                             num_cpus={task_cpu_demand},
+                            num_gpus=2,
                             scheduling_strategy=ray.util.scheduling_strategies.PlacementGroupSchedulingStrategy(
                                 placement_group=pg,
                                 placement_group_bundle_index=i
@@ -585,7 +587,7 @@ class RayCodeGen:
             sky_env_vars_dict['SKY_INTERNAL_JOB_ID'] = {self.job_id}
 
             futures.append(run_bash_command_with_log \\
-                    .options(name=name_str, {options_str}) \\
+                    .options(name=name_str, {options_str}, num_gpus=2) \\
                     .remote(
                         script,
                         log_path,
