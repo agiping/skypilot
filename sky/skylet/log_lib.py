@@ -252,15 +252,12 @@ def make_task_bash_script(codegen: str,
     script = [
         textwrap.dedent(f"""\
             #!/bin/bash
-            /opt/conda/bin/python3 -c "import torch; print(torch.cuda.is_available())" >> /tmp/torch_ok.log
             source ~/.bashrc
             set -a
             . $(conda info --base 2> /dev/null)/etc/profile.d/conda.sh > /dev/null 2>&1 || true
             set +a
             export PYTHONUNBUFFERED=1
-            cd {constants.SKY_REMOTE_WORKDIR}
-            /opt/conda/bin/python3 -c "import torch; print(torch.cuda.is_available())" >> /tmp/torch_ok.log
-            """),
+            cd {constants.SKY_REMOTE_WORKDIR}"""),
     ]
     if env_vars is not None:
         for k, v in env_vars.items():
