@@ -587,7 +587,7 @@ class RayCodeGen:
             sky_env_vars_dict['SKY_INTERNAL_JOB_ID'] = {self.job_id}
 
             futures.append(run_bash_command_with_log \\
-                    .options(name=name_str, {options_str}, num_gpus=2) \\
+                    .options(name=name_str, {options_str}) \\
                     .remote(
                         script,
                         log_path,
