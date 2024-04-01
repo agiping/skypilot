@@ -146,7 +146,9 @@ class SkyServeLoadBalancer:
 
     async def _handle_request(self, request: fastapi.Request):
         """Handle incoming requests by proxying them to service replicas."""
-        self._request_aggregator.add(request)
+        path = request.url.path
+        if path.endswith("generate_stream") or path.endswith("generate"):
+            self._request_aggregator.add(request)
         ready_replica_url = self._load_balancing_policy.select_replica(request)
 
         if ready_replica_url is None:
@@ -157,7 +159,6 @@ class SkyServeLoadBalancer:
 
         # Construct the full URL to which the request will be proxied
         is_stream = False
-        path = request.url.path
         if path.endswith("generate_stream"):
             is_stream = True
 
