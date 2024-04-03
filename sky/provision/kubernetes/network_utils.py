@@ -206,7 +206,8 @@ def get_ingress_external_ip_and_ports(
         http_port = [port for port in ports if port.name == 'http'][0].node_port
         https_port = [port for port in ports if port.name == 'https'
                      ][0].node_port
-        return ip, (int(http_port), int(https_port))
+        #return ip, (int(http_port), int(https_port))
+        return ip, (int(80), int(80))
 
     external_ip = ingress_service.status.load_balancer.ingress[
         0].ip or ingress_service.status.load_balancer.ingress[0].hostname
