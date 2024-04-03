@@ -476,18 +476,21 @@ class ReplicaInfo:
                 return self, False, probe_time
             elif not url.startswith('http://'):
                 url = f'http://{url}'
+            headers = {'Host': 'chat-character-test.test.ppio.bc-inner.com'}
             readiness_path = (f'{url}{readiness_path}')
             logger.info(f'Probing {replica_identity} with {readiness_path}.')
             if post_data is not None:
                 msg += 'POST'
                 response = requests.post(
                     readiness_path,
+                    headers=headers,
                     json=post_data,
                     timeout=serve_constants.READINESS_PROBE_TIMEOUT_SECONDS)
             else:
                 msg += 'GET'
                 response = requests.get(
                     readiness_path,
+                    headers=headers,
                     timeout=serve_constants.READINESS_PROBE_TIMEOUT_SECONDS)
             msg += (f' request to {replica_identity} returned status '
                     f'code {response.status_code}')

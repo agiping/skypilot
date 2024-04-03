@@ -10,7 +10,8 @@ ingress_spec:
   spec:
     ingressClassName: nginx
     rules:
-    - http:
+    - host: chat-character-test.test.ppio.bc-inner.com
+      http:
         paths:
         {% for service in service_names_and_ports %}
         - path: /{{ service.path_prefix }}(/|$)(.*)
