@@ -2834,7 +2834,7 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
                 prev_cluster_status, ip_list, ssh_port_list, lock_path)
             return handle
 
-    def _open_ports(self, handle: CloudVmRayResourceHandle) -> None:
+    def _open_ports(self, handle: CloudVmRayResourceHandle, ingress_hosts: List[str]) -> None:
         cloud = handle.launched_resources.cloud
         logger.debug(
             f'Opening ports {handle.launched_resources.ports} for {cloud}')
@@ -2842,7 +2842,7 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
         provider_config = config['provider']
         provision_lib.open_ports(repr(cloud), handle.cluster_name_on_cloud,
                                  handle.launched_resources.ports,
-                                 provider_config)
+                                 provider_config, ingress_hosts)
 
     def _update_after_cluster_provisioned(
             self, handle: CloudVmRayResourceHandle,
@@ -2898,7 +2898,7 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
         if open_new_ports:
             with rich_utils.safe_status(
                     '[bold cyan]Launching - Opening new ports'):
-                self._open_ports(handle)
+                self._open_ports(handle, task.service.ingress_hosts)
 
         with timeline.Event('backend.provision.post_process'):
             global_user_state.add_or_update_cluster(

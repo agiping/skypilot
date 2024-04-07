@@ -15,6 +15,7 @@ def open_ports(
     cluster_name_on_cloud: str,
     ports: List[str],
     provider_config: Optional[Dict[str, Any]] = None,
+    ingress_hosts: Optional[List[str]] = None,
 ) -> None:
     """See sky/provision/__init__.py"""
     assert provider_config is not None, 'provider_config is required'
@@ -29,7 +30,8 @@ def open_ports(
     elif port_mode == kubernetes_enums.KubernetesPortMode.INGRESS:
         _open_ports_using_ingress(cluster_name_on_cloud=cluster_name_on_cloud,
                                   ports=ports,
-                                  provider_config=provider_config)
+                                  provider_config=provider_config, 
+                                  ingress_hosts=ingress_hosts)
 
 
 def _open_ports_using_loadbalancer(
@@ -56,6 +58,7 @@ def _open_ports_using_ingress(
     cluster_name_on_cloud: str,
     ports: List[int],
     provider_config: Dict[str, Any],
+    ingress_hosts: Optional[List[str]] = None,
 ) -> None:
     # Check if an ingress controller exists
     if not network_utils.ingress_controller_exists():
@@ -80,6 +83,7 @@ def _open_ports_using_ingress(
         ingress_name=f'{cluster_name_on_cloud}-skypilot-ingress',
         selector_key='skypilot-cluster',
         selector_value=cluster_name_on_cloud,
+        ingress_hosts=ingress_hosts,
     )
 
     # Create or update services based on the generated specs

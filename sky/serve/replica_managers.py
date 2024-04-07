@@ -454,6 +454,7 @@ class ReplicaInfo:
     def probe(
         self,
         readiness_path: str,
+        ingress_host: List[str],
         post_data: Optional[Dict[str, Any]],
     ) -> Tuple['ReplicaInfo', bool, float]:
         """Probe the readiness of the replica.
@@ -476,7 +477,13 @@ class ReplicaInfo:
                 return self, False, probe_time
             elif not url.startswith('http://'):
                 url = f'http://{url}'
-            headers = {'Host': 'chat-character-test.test.ppio.bc-inner.com'}
+            if len(ingress_host) > 0:
+                host = ingress_host[0]
+            else:
+                logger.info(f'Error when probing {replica_identity}: '
+                            'No ingress host is given.')
+                return self, False, probe_time
+            headers = {'Host': host}
             readiness_path = (f'{url}{readiness_path}')
             logger.info(f'Probing {replica_identity} with {readiness_path}.')
             if post_data is not None:
@@ -990,8 +997,9 @@ class SkyPilotReplicaManager(ReplicaManager):
                 probe_futures.append(
                     pool.apply_async(
                         info.probe,
-                        (self._get_readiness_path(
-                            info.version), self._get_post_data(info.version)),
+                        (self._get_readiness_path(info.version), 
+                         self._get_readiness_host(info.version), 
+                         self._get_post_data(info.version)),
                     ),)
             logger.info(f'Replicas to probe: {", ".join(replica_to_probe)}')
 
@@ -1152,6 +1160,9 @@ class SkyPilotReplicaManager(ReplicaManager):
 
     def _get_readiness_path(self, version: int) -> str:
         return self._get_version_spec(version).readiness_path
+
+    def _get_readiness_host(self, version: int) -> List[str]:
+        return self._get_version_spec(version).ingress_hosts
 
     def _get_post_data(self, version: int) -> Optional[Dict[str, Any]]:
         return self._get_version_spec(version).post_data

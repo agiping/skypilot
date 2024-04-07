@@ -15,6 +15,10 @@ from sky.utils import ux_utils
 _INGRESS_TEMPLATE_NAME = 'kubernetes-ingress.yml.j2'
 _LOADBALANCER_TEMPLATE_NAME = 'kubernetes-loadbalancer.yml.j2'
 
+# In PPIO's cluster, we use the same port for both HTTP and HTTPS
+_PPIO_HTTP_PORT = 80
+_PPIO_HTTPS_PORT = 80
+
 
 def get_port_mode(
         mode_str: Optional[str] = None) -> kubernetes_enums.KubernetesPortMode:
@@ -60,7 +64,7 @@ def fill_loadbalancer_template(namespace: str, service_name: str,
 def fill_ingress_template(namespace: str, service_details: List[Tuple[str, int,
                                                                       str]],
                           ingress_name: str, selector_key: str,
-                          selector_value: str) -> Dict:
+                          selector_value: str, ingress_hosts: List[str]) -> Dict:
     template_path = os.path.join(sky.__root_dir__, 'templates',
                                  _INGRESS_TEMPLATE_NAME)
     if not os.path.exists(template_path):
@@ -79,6 +83,7 @@ def fill_ingress_template(namespace: str, service_details: List[Tuple[str, int,
         ingress_name=ingress_name,
         selector_key=selector_key,
         selector_value=selector_value,
+        ingress_hosts=ingress_hosts,
     )
     content = yaml.safe_load(cont)
 
@@ -202,12 +207,11 @@ def get_ingress_external_ip_and_ports(
                 'skypilot.co/external-ip', None)
         if ip is None:
             ip = 'localhost'
-        ports = ingress_service.spec.ports
-        http_port = [port for port in ports if port.name == 'http'][0].node_port
-        https_port = [port for port in ports if port.name == 'https'
-                     ][0].node_port
+        #ports = ingress_service.spec.ports
+        #http_port = [port for port in ports if port.name == 'http'][0].node_port
+        #https_port = [port for port in ports if port.name == 'https'][0].node_port
         #return ip, (int(http_port), int(https_port))
-        return ip, (int(80), int(80))
+        return ip, (int(_PPIO_HTTP_PORT), int(_PPIO_HTTPS_PORT))
 
     external_ip = ingress_service.status.load_balancer.ingress[
         0].ip or ingress_service.status.load_balancer.ingress[0].hostname

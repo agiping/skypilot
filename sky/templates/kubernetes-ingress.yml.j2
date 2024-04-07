@@ -10,7 +10,8 @@ ingress_spec:
   spec:
     ingressClassName: nginx
     rules:
-    - host: chat-character-test.test.ppio.bc-inner.com
+    {% for host in ingress_hosts %}
+    - host: {{ host }}
       http:
         paths:
         {% for service in service_names_and_ports %}
@@ -22,6 +23,7 @@ ingress_spec:
               port:
                 number: {{ service.service_port }}
         {% endfor %}
+    {% endfor %}
 services_spec:
   {% for service in service_names_and_ports %}
   {{ service.service_name }}:

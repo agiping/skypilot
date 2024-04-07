@@ -368,6 +368,28 @@ def get_service_schema():
             'replicas': {
                 'type': 'integer',
             },
+            # support for multiple hosts
+            # Example:
+            # ----------------
+            # service:
+            #   ingress:
+            #     hosts:
+            #       - chat-character-test.test.ppio.bc-inner.com
+            #       - chat-character-test.test.inference.proxy.bc-inner.com
+            # ----------------
+            'ingress': {
+                'type': 'object',
+                'properties': {
+                    'hosts': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'string'
+                        }
+                    }
+                },
+                'required': ['hosts'],
+                'additionalProperties': False
+            },
         }
     }
 

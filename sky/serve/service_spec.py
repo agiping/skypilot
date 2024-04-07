@@ -2,7 +2,7 @@
 import json
 import os
 import textwrap
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import yaml
 
@@ -34,6 +34,7 @@ class SkyServiceSpec:
         # Deprecated: replaced by the target_qps_per_replica.
         qps_upper_threshold: Optional[float] = None,
         qps_lower_threshold: Optional[float] = None,
+        ingress_hosts: Optional[List[str]] = None,
     ) -> None:
         if max_replicas is not None and max_replicas < min_replicas:
             with ux_utils.print_exception_no_traceback():
@@ -64,6 +65,10 @@ class SkyServiceSpec:
                     'Field `auto_restart` under `replica_policy` is deprecated.'
                     'Currently, SkyServe will cleanup failed replicas'
                     'and auto restart it to keep the service running.')
+        
+        if ingress_hosts is not None and not all(isinstance(host, str) for host in ingress_hosts):
+            with ux_utils.print_exception_no_traceback():
+                raise ValueError('ingress_hosts must be a list of strings.')
 
         self._readiness_path: str = readiness_path
         self._initial_delay_seconds: int = initial_delay_seconds
@@ -78,6 +83,7 @@ class SkyServiceSpec:
         # _spot_locations will be set by set_spot_locations.
         self._upscale_delay_seconds: Optional[int] = upscale_delay_seconds
         self._downscale_delay_seconds: Optional[int] = downscale_delay_seconds
+        self._ingress_hosts = ingress_hosts
 
         self._use_ondemand_fallback: bool = (
             self.dynamic_ondemand_fallback is not None and
@@ -154,6 +160,17 @@ class SkyServiceSpec:
                     'base_ondemand_fallback_replicas', None)
             service_config['dynamic_ondemand_fallback'] = policy_section.get(
                 'dynamic_ondemand_fallback', None)
+        
+        ingress_section = config.get('ingress', None)
+        if ingress_section is not None:
+            # Ensure 'hosts' key exists and is a list
+            if 'hosts' in ingress_section and isinstance(ingress_section['hosts'], list):
+                service_config['ingress_hosts'] = ingress_section['hosts']
+            else:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError(
+                        'The Service `ingress` section must include a `hosts` list.'
+                    )
 
         return SkyServiceSpec(**service_config)
 
@@ -207,6 +224,8 @@ class SkyServiceSpec:
                         self.upscale_delay_seconds)
         add_if_not_none('replica_policy', 'downscale_delay_seconds',
                         self.downscale_delay_seconds)
+        add_if_not_none('ingress', 'hosts', self.ingress_hosts, no_empty=True)
+        
         return config
 
     def probe_str(self):
@@ -253,6 +272,10 @@ class SkyServiceSpec:
     @property
     def readiness_path(self) -> str:
         return self._readiness_path
+
+    @property
+    def ingress_hosts(self) -> List[str]:
+        return self.ingress_hosts
 
     @property
     def initial_delay_seconds(self) -> int:
