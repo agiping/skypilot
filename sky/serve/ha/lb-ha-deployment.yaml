@@ -84,3 +84,13 @@ spec:
             name: sky-lb-ha-service-{{service_name}}
             port:
               number: 8890
+  - host: chat-character-test.test.inference.proxy.bc-inner.com
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: sky-lb-ha-service-{{service_name}}
+            port:
+              number: 8890
