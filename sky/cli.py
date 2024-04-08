@@ -1112,6 +1112,10 @@ def _make_task_or_dag_from_entrypoint_with_overrides(
         Otherwise, a task.
     """
     entrypoint = ' '.join(entrypoint)
+    print("======================sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
+    print(entrypoint)
+    print("======================sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
+    service = serve_lib.SkyServiceSpec.from_yaml(entrypoint)
     is_yaml, _ = _check_yaml(entrypoint)
     entrypoint: Optional[str]
     if is_yaml:
@@ -1176,7 +1180,7 @@ def _make_task_or_dag_from_entrypoint_with_overrides(
         override_params['spot_recovery'] = spot_recovery
 
     task.set_resources_override(override_params)
-
+    task.set_service(service)
     if num_nodes is not None:
         task.num_nodes = num_nodes
     if name is not None:

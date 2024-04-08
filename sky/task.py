@@ -633,7 +633,8 @@ class Task:
     @property
     def service(self) -> Optional[service_spec.SkyServiceSpec]:
         return self._service
-
+    
+    @staticmethod
     def set_service(self,
                     service: Optional[service_spec.SkyServiceSpec]) -> 'Task':
         """Sets the service spec for this task.
