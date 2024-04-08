@@ -804,9 +804,6 @@ def _launch_with_confirm(
     """Launch a cluster with a Task."""
     if cluster is None:
         cluster = backend_utils.generate_cluster_name()
-    print("======================sky/cli.py:_launch_with_confirm()===================")
-    print(task)
-    print("======================sky/cli.py:_launch_with_confirm()===================")
     clone_source_str = ''
     if clone_disk_from is not None:
         clone_source_str = f' from the disk of {clone_disk_from!r}'
@@ -1112,9 +1109,9 @@ def _make_task_or_dag_from_entrypoint_with_overrides(
         Otherwise, a task.
     """
     entrypoint = ' '.join(entrypoint)
-    print("======================sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
-    print(entrypoint)
-    print("======================sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
+
+    # To support configuration of multiple ingress hosts, we need pass the service spec of task.yaml
+    # to the Task object, which will be used in the afterward ingress template filling.
     service = serve_lib.SkyServiceSpec.from_yaml(entrypoint)
     is_yaml, _ = _check_yaml(entrypoint)
     entrypoint: Optional[str]
@@ -1181,9 +1178,6 @@ def _make_task_or_dag_from_entrypoint_with_overrides(
 
     task.set_resources_override(override_params)
     task.set_service(service)
-    print("======================task at : sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
-    print(task)
-    print("======================task at : sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
     if num_nodes is not None:
         task.num_nodes = num_nodes
     if name is not None:
@@ -4360,9 +4354,6 @@ def serve_up(
         prompt = f'Launching a new service {service_name!r}. Proceed?'
         if prompt is not None:
             click.confirm(prompt, default=True, abort=True, show_default=True)
-    print("======================sky/cli.py:serve_up():task===================")
-    print(task)
-    print("======================sky/cli.py:serve_up():task===================")
     serve_lib.up(task, service_name)
 
 

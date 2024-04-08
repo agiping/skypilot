@@ -313,9 +313,6 @@ def _execute(
     try:
         if Stage.PROVISION in stages:
             if handle is None:
-                print("======================sky/execution.py:backend.provision()===================")
-                print(task)
-                print("======================sky/execution.py:backend.provision()===================")
                 handle = backend.provision(task,
                                            task.best_resources,
                                            dryrun=dryrun,
@@ -497,9 +494,6 @@ def launch(
         if dryrun.
     """
     entrypoint = task
-    print("======================sky/execution.py:launch()===================")
-    print(entrypoint)
-    print("======================sky/execution.py:launch()===================")
     if not _disable_controller_check:
         controller_utils.check_cluster_name_not_controller(
             cluster_name, operation_str='sky.launch')
