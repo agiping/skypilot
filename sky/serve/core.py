@@ -202,6 +202,8 @@ def up(
         #     controller_cloud and
         #     controller_cloud.is_same_cloud(clouds.Kubernetes())
         # ) else constants.CONTROLLER_IDLE_MINUTES_TO_AUTOSTOP
+
+        # we use is_serve_controller to indicate this launch is for serve controller, not replicas
         controller_job_id, controller_handle = sky.launch(
             task=controller_task,
             stream_logs=False,
@@ -210,6 +212,7 @@ def up(
             idle_minutes_to_autostop=idle_minutes_to_autostop,
             retry_until_up=True,
             _disable_controller_check=True,
+            is_serve_controller=True,
         )
 
         style = colorama.Style

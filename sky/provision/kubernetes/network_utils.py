@@ -13,6 +13,7 @@ from sky.utils import kubernetes_enums
 from sky.utils import ux_utils
 
 _INGRESS_TEMPLATE_NAME = 'kubernetes-ingress.yml.j2'
+_POD_INGRESS_TEMPLATE_NAME = 'kubernetes-ingress-pod.yml.j2'
 _LOADBALANCER_TEMPLATE_NAME = 'kubernetes-loadbalancer.yml.j2'
 
 # In PPIO's cluster, we use the same port for both HTTP and HTTPS
@@ -64,27 +65,48 @@ def fill_loadbalancer_template(namespace: str, service_name: str,
 def fill_ingress_template(namespace: str, service_details: List[Tuple[str, int,
                                                                       str]],
                           ingress_name: str, selector_key: str,
-                          selector_value: str, ingress_hosts: List[str]) -> Dict:
-    template_path = os.path.join(sky.__root_dir__, 'templates',
-                                 _INGRESS_TEMPLATE_NAME)
-    if not os.path.exists(template_path):
-        raise FileNotFoundError(
-            f'Template "{_INGRESS_TEMPLATE_NAME}" does not exist.')
-    with open(template_path, 'r', encoding='utf-8') as fin:
-        template = fin.read()
-    j2_template = jinja2.Template(template)
-    cont = j2_template.render(
-        namespace=namespace,
-        service_names_and_ports=[{
-            'service_name': name,
-            'service_port': port,
-            'path_prefix': path_prefix
-        } for name, port, path_prefix in service_details],
-        ingress_name=ingress_name,
-        selector_key=selector_key,
-        selector_value=selector_value,
-        ingress_hosts=ingress_hosts,
-    )
+                          selector_value: str, ingress_hosts: Optional[List[str]]) -> Dict:
+    if ingress_hosts is None:
+        template_path = os.path.join(sky.__root_dir__, 'templates',
+                                    _INGRESS_TEMPLATE_NAME)
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(
+                f'Template "{_INGRESS_TEMPLATE_NAME}" does not exist.')
+        with open(template_path, 'r', encoding='utf-8') as fin:
+            template = fin.read()
+        j2_template = jinja2.Template(template)
+        cont = j2_template.render(
+            namespace=namespace,
+            service_names_and_ports=[{
+                'service_name': name,
+                'service_port': port,
+                'path_prefix': path_prefix
+            } for name, port, path_prefix in service_details],
+            ingress_name=ingress_name,
+            selector_key=selector_key,
+            selector_value=selector_value,
+        )
+    else:
+        template_path = os.path.join(sky.__root_dir__, 'templates',
+                                    _POD_INGRESS_TEMPLATE_NAME)
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(
+                f'Template "{_POD_INGRESS_TEMPLATE_NAME}" does not exist.')
+        with open(template_path, 'r', encoding='utf-8') as fin:
+            template = fin.read()
+        j2_template = jinja2.Template(template)
+        cont = j2_template.render(
+            namespace=namespace,
+            service_names_and_ports=[{
+                'service_name': name,
+                'service_port': port,
+                'path_prefix': path_prefix
+            } for name, port, path_prefix in service_details],
+            ingress_name=ingress_name,
+            selector_key=selector_key,
+            selector_value=selector_value,
+            ingress_hosts=ingress_hosts,
+        )
     content = yaml.safe_load(cont)
 
     # Return a dictionary containing both specs

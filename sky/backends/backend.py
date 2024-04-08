@@ -49,13 +49,14 @@ class Backend(Generic[_ResourceHandleType]):
             dryrun: bool,
             stream_logs: bool,
             cluster_name: Optional[str] = None,
-            retry_until_up: bool = False) -> Optional[_ResourceHandleType]:
+            retry_until_up: bool = False,
+            is_serve_controller: bool = False) -> Optional[_ResourceHandleType]:
         if cluster_name is None:
             cluster_name = sky.backends.backend_utils.generate_cluster_name()
         usage_lib.record_cluster_name_for_current_operation(cluster_name)
         usage_lib.messages.usage.update_actual_task(task)
         return self._provision(task, to_provision, dryrun, stream_logs,
-                               cluster_name, retry_until_up)
+                               cluster_name, retry_until_up, is_serve_controller)
 
     @timeline.event
     @usage_lib.messages.usage.update_runtime('sync_workdir')
@@ -127,7 +128,8 @@ class Backend(Generic[_ResourceHandleType]):
             dryrun: bool,
             stream_logs: bool,
             cluster_name: str,
-            retry_until_up: bool = False) -> Optional[_ResourceHandleType]:
+            retry_until_up: bool = False,
+            is_serve_controller: bool = False) -> Optional[_ResourceHandleType]:
         raise NotImplementedError
 
     def _sync_workdir(self, handle: _ResourceHandleType, workdir: Path) -> None:

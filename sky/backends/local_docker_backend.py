@@ -136,7 +136,8 @@ class LocalDockerBackend(backends.Backend['LocalDockerResourceHandle']):
             dryrun: bool,
             stream_logs: bool,
             cluster_name: str,
-            retry_until_up: bool = False
+            retry_until_up: bool = False,
+            is_serve_controller: bool = False
     ) -> Optional[LocalDockerResourceHandle]:
         """Builds docker image for the task and returns cluster name as handle.
 

@@ -163,6 +163,7 @@ def _execute(
     # pylint: disable=invalid-name
     _is_launched_by_spot_controller: bool = False,
     _is_launched_by_sky_serve_controller: bool = False,
+    is_serve_controller: bool = False,
 ) -> Tuple[Optional[int], Optional[backends.ResourceHandle]]:
     """Execute an entrypoint.
 
@@ -318,7 +319,8 @@ def _execute(
                                            dryrun=dryrun,
                                            stream_logs=stream_logs,
                                            cluster_name=cluster_name,
-                                           retry_until_up=retry_until_up)
+                                           retry_until_up=retry_until_up,
+                                           is_serve_controller=is_serve_controller)
 
         if handle is None:
             assert dryrun, ('If not dryrun, handle must be set or '
@@ -406,6 +408,7 @@ def launch(
     _is_launched_by_spot_controller: bool = False,
     _is_launched_by_sky_serve_controller: bool = False,
     _disable_controller_check: bool = False,
+    is_serve_controller: bool = False,
 ) -> Tuple[Optional[int], Optional[backends.ResourceHandle]]:
     # NOTE(dev): Keep the docstring consistent between the Python API and CLI.
     """Launch a cluster or task.
@@ -516,6 +519,7 @@ def launch(
         _is_launched_by_spot_controller=_is_launched_by_spot_controller,
         _is_launched_by_sky_serve_controller=
         _is_launched_by_sky_serve_controller,
+        is_serve_controller=is_serve_controller,
     )
 
 
