@@ -1181,6 +1181,9 @@ def _make_task_or_dag_from_entrypoint_with_overrides(
 
     task.set_resources_override(override_params)
     task.set_service(service)
+    print("======================task at : sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
+    print(task)
+    print("======================task at : sky/cli.py:_make_task_or_dag_from_entrypoint_with_overrides()===================")
     if num_nodes is not None:
         task.num_nodes = num_nodes
     if name is not None:
