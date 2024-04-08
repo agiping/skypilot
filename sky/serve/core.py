@@ -107,7 +107,9 @@ def up(
     """
     if service_name is None:
         service_name = serve_utils.generate_service_name()
-
+    print("======================sky/serve/core.py:up():task===================")
+    print(task)
+    print("======================sky/serve/core.py:up():task===================")
     # The service name will be used as:
     # 1. controller cluster name: 'sky-serve-controller-<service_name>'
     # 2. replica cluster name: '<service_name>-<replica_id>'
@@ -203,6 +205,9 @@ def up(
         #     controller_cloud and
         #     controller_cloud.is_same_cloud(clouds.Kubernetes())
         # ) else constants.CONTROLLER_IDLE_MINUTES_TO_AUTOSTOP
+        print("======================sky/serve/core.py:up():controller_task===================")
+        print(controller_task)
+        print("======================sky/serve/core.py:up():controller_task===================")
         controller_job_id, controller_handle = sky.launch(
             task=controller_task,
             stream_logs=False,

@@ -804,7 +804,9 @@ def _launch_with_confirm(
     """Launch a cluster with a Task."""
     if cluster is None:
         cluster = backend_utils.generate_cluster_name()
-
+    print("======================sky/cli.py:_launch_with_confirm()===================")
+    print(task)
+    print("======================sky/cli.py:_launch_with_confirm()===================")
     clone_source_str = ''
     if clone_disk_from is not None:
         clone_source_str = f' from the disk of {clone_disk_from!r}'
@@ -4351,7 +4353,9 @@ def serve_up(
         prompt = f'Launching a new service {service_name!r}. Proceed?'
         if prompt is not None:
             click.confirm(prompt, default=True, abort=True, show_default=True)
-
+    print("======================sky/cli.py:serve_up():task===================")
+    print(task)
+    print("======================sky/cli.py:serve_up():task===================")
     serve_lib.up(task, service_name)
 
 

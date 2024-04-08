@@ -275,7 +275,7 @@ class SkyServiceSpec:
 
     @property
     def ingress_hosts(self) -> List[str]:
-        return self.ingress_hosts
+        return self._ingress_hosts
 
     @property
     def initial_delay_seconds(self) -> int:
