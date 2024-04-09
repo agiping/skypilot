@@ -2835,7 +2835,7 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
                 prev_cluster_status, ip_list, ssh_port_list, lock_path, is_serve_controller)
             return handle
 
-    def _open_ports(self, handle: CloudVmRayResourceHandle, ingress_hosts: Optional[List[str]]) -> None:
+    def _open_ports(self, handle: CloudVmRayResourceHandle, ingress_hosts: Optional[List[str]] = None) -> None:
         cloud = handle.launched_resources.cloud
         logger.debug(
             f'Opening ports {handle.launched_resources.ports} for {cloud}')

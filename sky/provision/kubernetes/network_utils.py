@@ -65,7 +65,7 @@ def fill_loadbalancer_template(namespace: str, service_name: str,
 def fill_ingress_template(namespace: str, service_details: List[Tuple[str, int,
                                                                       str]],
                           ingress_name: str, selector_key: str,
-                          selector_value: str, ingress_hosts: Optional[List[str]]) -> Dict:
+                          selector_value: str, ingress_hosts: Optional[List[str]] = None) -> Dict:
     if ingress_hosts is None:
         template_path = os.path.join(sky.__root_dir__, 'templates',
                                     _INGRESS_TEMPLATE_NAME)
