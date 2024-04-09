@@ -70,16 +70,24 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
   name: sky-lb-ha-ingress-{{service_name}}
 spec:
   ingressClassName: nginx
   rules:
-  - http:
+  - host: chat-character-test.test.ppio.bc-inner.com
+    http:
       paths:
-      - path: /sky-lb-ha-{{service_name}}(/|$)(.*)
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: sky-lb-ha-service-{{service_name}}
+            port:
+              number: 8890
+  - host: chat-character-test.test.inference.proxy.bc-inner.com
+    http:
+      paths:
+      - path: /
         pathType: ImplementationSpecific
         backend:
           service:
