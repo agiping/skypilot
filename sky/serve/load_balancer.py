@@ -162,11 +162,10 @@ class SkyServeLoadBalancer:
         if path.endswith("generate_stream"):
             is_stream = True
 
-        #query_string = request.url.query
+        if not ready_replica_url.startswith('http'):
+            ready_replica_url = 'http://' + ready_replica_url
         target_url = f'{ready_replica_url}{path}'
-        #if query_string:
-        #    target_url += f'?{query_string}'
-
+        
         logger.info(f'Proxying request to {target_url}')
 
         return await self._proxy_request(request, target_url, stream=is_stream, 
