@@ -242,12 +242,6 @@ available_node_types:
         - name: secret-volume
           secret:
             secretName: {{k8s_ssh_key_secret_name}}
-        - name: dshm
-          emptyDir:
-            medium: Memory
-            {% if k8s_dshm_size_limit is not none %}
-            sizeLimit: {{k8s_dshm_size_limit}}
-            {% endif %}
         - name: dev-fuse    # Required for fuse mounting
           hostPath:
             path: /dev/fuse
@@ -272,8 +266,6 @@ available_node_types:
           - name: secret-volume
             readOnly: true
             mountPath: "/etc/secret-volume"
-          - mountPath: /dev/shm
-            name: dshm
           - mountPath: /dev/fuse    # Required for FUSE mounting
             name: dev-fuse
           securityContext:          # Required for FUSE mounting. TODO(romilb): See if we can grant a reduced set of privileges.
