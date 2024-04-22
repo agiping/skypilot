@@ -563,3 +563,54 @@ class FallbackRequestRateAutoscaler(RequestRateAutoscaler):
                                    target=replica_id))
 
         return scaling_options
+
+
+class QueueSizeAutoscaler(Autoscaler):
+    def __init__(self, service_name: str, spec: 'service_spec.SkyServiceSpec', threshold_up: float, threshold_down: float):
+        super().__init__(service_name, spec)
+        self.threshold_up = threshold_up
+        self.threshold_down = threshold_down
+        self.queue_sizes = []
+
+    def collect_queue_information(self, queue_info: Dict[str, List[int]]) -> None:
+        """Collect queue size information from replicas."""
+        self.queue_sizes = queue_info.get('queue_sizes', [])
+        logger.info(f'Collected queue sizes: {self.queue_sizes}')
+
+    def _calculate_target_num_replicas_based_on_queue_size(self) -> int:
+        if not self.queue_sizes:
+            return self.min_replicas
+        average_queue_size = sum(self.queue_sizes) / len(self.queue_sizes)
+        if average_queue_size > self.threshold_up:
+            return min(self.max_replicas, self.target_num_replicas + 1)
+        elif average_queue_size < self.threshold_down:
+            return max(self.min_replicas, self.target_num_replicas - 1)
+        return self.target_num_replicas
+
+    def evaluate_scaling(self, replica_infos: List['replica_managers.ReplicaInfo']) -> List[AutoscalerDecision]:
+        self.target_num_replicas = self._calculate_target_num_replicas_based_on_queue_size()
+        
+        scaling_decisions = []
+        current_replica_count = len([info for info in replica_infos if info.is_provisioning_or_launched])
+        
+        if current_replica_count < self.target_num_replicas:
+            # Scale up
+            for _ in range(self.target_num_replicas - current_replica_count):
+                scaling_decisions.append(AutoscalerDecision(AutoscalerDecisionOperator.SCALE_UP, None))
+        elif current_replica_count > self.target_num_replicas:
+            # Scale down
+            replicas_to_remove = current_replica_count - self.target_num_replicas
+            replica_ids = [info.replica_id for info in replica_infos if info.is_provisioning_or_launched]
+            for replica_id in sorted(replica_ids)[:replicas_to_remove]:
+                scaling_decisions.append(AutoscalerDecision(AutoscalerDecisionOperator.SCALE_DOWN, replica_id))
+                
+        return scaling_decisions
+
+    def dump_dynamic_states(self) -> Dict[str, Any]:
+        return {'queue_sizes': self.queue_sizes}
+
+    def load_dynamic_states(self, dynamic_states: Dict[str, Any]) -> None:
+        if 'queue_sizes' in dynamic_states:
+            self.queue_sizes = dynamic_states.pop('queue_sizes')
+        if dynamic_states:
+            logger.info(f'Remaining dynamic states: {dynamic_states}')
