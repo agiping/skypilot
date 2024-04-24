@@ -34,6 +34,10 @@ class SkyServiceSpec:
         # Deprecated: replaced by the target_qps_per_replica.
         qps_upper_threshold: Optional[float] = None,
         qps_lower_threshold: Optional[float] = None,
+        tgi_queue_size_up: Optional[int] = None,
+        tgi_queue_size_down: Optional[int] = None,
+        average_queue_time_up: Optional[float] = None,
+        average_queue_time_down: Optional[float] = None,
     ) -> None:
         if max_replicas is not None and max_replicas < min_replicas:
             with ux_utils.print_exception_no_traceback():
@@ -63,7 +67,22 @@ class SkyServiceSpec:
                 raise ValueError(
                     'Field `auto_restart` under `replica_policy` is deprecated.'
                     'Currently, SkyServe will cleanup failed replicas'
-                    'and auto restart it to keep the service running.')
+                    'and auto restart it to keep the service running.')        
+        
+        if (tgi_queue_size_up is None) != (tgi_queue_size_down is None):
+            with ux_utils.print_exception_no_traceback():
+                raise ValueError('Both `tgi_queue_size_up` and `tgi_queue_size_down` must be either set or unset together.')
+
+        if tgi_queue_size_up is not None and tgi_queue_size_down is not None:
+            if tgi_queue_size_down < 0:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError('`tgi_queue_size_down` must be greater than or equal to 0.')
+            if tgi_queue_size_up <= 0:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError('`tgi_queue_size_up` must be strictly greater than 0.')
+            if tgi_queue_size_down >= tgi_queue_size_up:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError('`tgi_queue_size_down` must be strictly less than `tgi_queue_size_up`.')
 
         self._readiness_path: str = readiness_path
         self._initial_delay_seconds: int = initial_delay_seconds
@@ -84,6 +103,9 @@ class SkyServiceSpec:
             self.dynamic_ondemand_fallback) or (
                 self.base_ondemand_fallback_replicas is not None and
                 self.base_ondemand_fallback_replicas > 0)
+        
+        self._tgi_queue_size_up: Optional[int] = tgi_queue_size_up
+        self._tgi_queue_size_down: Optional[int] = tgi_queue_size_down
 
     @staticmethod
     def from_yaml_config(config: Dict[str, Any]) -> 'SkyServiceSpec':
@@ -207,6 +229,11 @@ class SkyServiceSpec:
                         self.upscale_delay_seconds)
         add_if_not_none('replica_policy', 'downscale_delay_seconds',
                         self.downscale_delay_seconds)
+        add_if_not_none('replica_policy', 'tgi_queue_size_up',
+                        self.average_tgi_queue_size_up)
+        add_if_not_none('replica_policy', 'tgi_queue_size_down',
+                        self.average_tgi_queue_size_down)
+        
         return config
 
     def probe_str(self):
@@ -294,3 +321,11 @@ class SkyServiceSpec:
     @property
     def use_ondemand_fallback(self) -> bool:
         return self._use_ondemand_fallback
+    
+    @property
+    def tgi_queue_size_up(self) -> Optional[int]:
+        return self._tgi_queue_size_up
+    
+    @property
+    def tgi_queue_size_down(self) -> Optional[int]:
+        return self._tgi_queue_size_down

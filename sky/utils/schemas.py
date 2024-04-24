@@ -350,6 +350,22 @@ def get_service_schema():
                     'downscale_delay_seconds': {
                         'type': 'number',
                     },
+                    'tgi_queue_size_up': {
+                        'type': 'integer',
+                        'minimum': 0,
+                    },
+                    'tgi_queue_size_down': {
+                        'type': 'integer',
+                        'minimum': 0,
+                    },
+                    'average_queue_time_up': {
+                        'type': 'number',
+                        'minimum': 0,
+                    },
+                    'average_queue_time_down': {
+                        'type': 'number',
+                        'minimum': 0,
+                    },
                     # TODO(MaoZiming): Fields `qps_upper_threshold`,
                     # `qps_lower_threshold` and `auto_restart` are deprecated.
                     # Temporarily keep these fields for backward compatibility.

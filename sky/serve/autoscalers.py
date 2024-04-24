@@ -565,7 +565,12 @@ class FallbackRequestRateAutoscaler(RequestRateAutoscaler):
         return scaling_options
 
 
-class QueueSizeAutoscaler(Autoscaler):
+class TgiQueueSizeAutoscaler(Autoscaler):
+    """
+    We use the average queue size of all replicas to decide if autoscaling is needed.
+    This Policy is deprecated and has been replaced by TgiQueueStateAutoscaler in the bellow.
+    We keep this for testing purposes.
+    """
     def __init__(self, service_name: str, spec: 'service_spec.SkyServiceSpec', threshold_up: float, threshold_down: float):
         super().__init__(service_name, spec)
         self.threshold_up = threshold_up
@@ -614,3 +619,73 @@ class QueueSizeAutoscaler(Autoscaler):
             self.queue_sizes = dynamic_states.pop('queue_sizes')
         if dynamic_states:
             logger.info(f'Remaining dynamic states: {dynamic_states}')
+
+
+class TgiQueueStateAutoscaler(Autoscaler):
+    """Autoscaler based on the state of tgi queue"""
+    def __init__(self, service_name: str,
+                 spec: 'service_spec.SkyServiceSpec') -> None:
+        super().__init__(service_name, spec)
+        self.min_replicas: Optional[int] = spec.min_replicas
+        self.max_replicas: Optional[int] = spec.max_replicas
+        self.tgi_queue_size_up = spec.tgi_queue_size_up
+        self.tgi_queue_size_down = spec.tgi_queue_size_down
+        self.average_queue_time_up = spec.average_queue_time_up
+        self.average_queue_time_down = spec.average_queue_time_down
+        #self.current_replicas = spec.min_replicas
+        upscale_delay_seconds = (
+            spec.upscale_delay_seconds if spec.upscale_delay_seconds is not None
+            else constants.AUTOSCALER_DEFAULT_UPSCALE_DELAY_SECONDS)
+        self.scale_up_consecutive_periods: int = int(
+            upscale_delay_seconds /
+            constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS)
+        downscale_delay_seconds = (
+            spec.downscale_delay_seconds
+            if spec.downscale_delay_seconds is not None else
+            constants.AUTOSCALER_DEFAULT_DOWNSCALE_DELAY_SECONDS)
+        self.scale_down_consecutive_periods: int = int(
+            downscale_delay_seconds /
+            constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS)
+
+    def evaluate_scaling(self, tgi_queue_state: Dict[str, Any]) -> List[AutoscalerDecision]:
+        current_queue_size = tgi_queue_state.get('tgi_queue_size', 0)
+        average_wait_time = tgi_queue_state.get('average_wait_time', 0)
+
+        scaling_decisions = []
+        current_time = time.time()
+        # Evaluate need for scaling up
+        if (current_queue_size > self.tgi_queue_size_up or average_wait_time > self.average_wait_time_up):
+            if self.current_replicas < self.max_replicas and (current_time - self.last_scale_up_time > self.upscale_delay_seconds):
+                # Increase by 10% or at least 1 replica
+                increase_amount = max(int(self.current_replicas * 0.10), 1)
+                new_replicas = min(self.current_replicas + increase_amount, self.max_replicas)
+                scaling_decisions.append(AutoscalerDecision('SCALE_UP', None))
+                self.current_replicas = new_replicas
+                self.last_scale_up_time = current_time
+
+        # Evaluate need for scaling down
+        if (current_queue_size < self.average_wait_time_down and average_wait_time < self.average_wait_time_down):
+            if self.current_replicas > self.min_replicas and (current_time - self.last_scale_down_time > self.scale_down_delay):
+                # Decrease by 10% or at least 1 replica
+                decrease_amount = max(int(self.current_replicas * 0.10), 1)
+                new_replicas = max(self.current_replicas - decrease_amount, self.min_replicas)
+                # Assuming replica ids to remove are the highest ids
+                replica_ids_to_remove = list(range(new_replicas, self.current_replicas))
+                for replica_id in replica_ids_to_remove:
+                    scaling_decisions.append(AutoscalerDecision('SCALE_DOWN', replica_id))
+                self.current_replicas = new_replicas
+                self.last_scale_down_time = current_time
+
+        return scaling_decisions
+    # # Example usage:
+    # autoscaler = Autoscaler(min_replicas=2, max_replicas=10, tgi_queue_length_threshold_up=100, average_wait_time_threshold=1.0)
+    # traffic_patterns = [
+    #     {'queue_length': 150, 'average_wait_time': 1.2},
+    #     {'queue_length': 80, 'average_wait_time': 0.9},
+    #     {'queue_length': 30, 'average_wait_time': 0.4},
+    #     {'queue_length': 200, 'average_wait_time': 1.5},
+    # ]
+
+    # for pattern in traffic_patterns:
+    #     decisions = autoscaler.evaluate_scaling(pattern['queue_length'], pattern['average_wait_time'])
+    #     print(f"Decisions for Queue Length {pattern['queue_length']} and Average Wait Time {pattern['average_wait_time']}: {decisions}")
