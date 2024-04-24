@@ -352,15 +352,18 @@ def get_service_schema():
                     },
                     'tgi_queue_size_up': {
                         'type': 'integer',
-                        'minimum': 0,
+                        'minimum': 1,
                     },
                     'tgi_queue_size_down': {
                         'type': 'integer',
                         'minimum': 0,
                     },
+                    # average_queue_time_up and average_queue_time_down are
+                    # denoted in milliseconds. 
+                    # The minimum value is 0.01 milliseconds.
                     'average_queue_time_up': {
                         'type': 'number',
-                        'minimum': 0,
+                        'minimum': 0.01,
                     },
                     'average_queue_time_down': {
                         'type': 'number',

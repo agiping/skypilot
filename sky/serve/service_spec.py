@@ -71,7 +71,8 @@ class SkyServiceSpec:
         
         if (tgi_queue_size_up is None) != (tgi_queue_size_down is None):
             with ux_utils.print_exception_no_traceback():
-                raise ValueError('Both `tgi_queue_size_up` and `tgi_queue_size_down` must be either set or unset together.')
+                raise ValueError('Both `tgi_queue_size_up` and `tgi_queue_size_down`'
+                                 'must be either set or unset together.')
 
         if tgi_queue_size_up is not None and tgi_queue_size_down is not None:
             if tgi_queue_size_down < 0:
@@ -83,6 +84,22 @@ class SkyServiceSpec:
             if tgi_queue_size_down >= tgi_queue_size_up:
                 with ux_utils.print_exception_no_traceback():
                     raise ValueError('`tgi_queue_size_down` must be strictly less than `tgi_queue_size_up`.')
+        
+        if (average_queue_time_up is None) != (average_queue_time_down is None):
+            with ux_utils.print_exception_no_traceback():
+                raise ValueError('Both `average_queue_time_up` and `average_queue_time_down`'
+                                 'must be either set or unset together.')
+
+        if average_queue_time_up is not None and average_queue_time_down is not None:
+            if average_queue_time_down < 0:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError('`average_queue_time_down` must be greater than or equal to 0.')
+            if average_queue_time_up <= 0:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError('`average_queue_time_up` must be strictly greater than 0.')
+            if average_queue_time_down >= average_queue_time_up:
+                with ux_utils.print_exception_no_traceback():
+                    raise ValueError('`average_queue_time_down` must be strictly less than `average_queue_time_up`.')
 
         self._readiness_path: str = readiness_path
         self._initial_delay_seconds: int = initial_delay_seconds
@@ -106,6 +123,8 @@ class SkyServiceSpec:
         
         self._tgi_queue_size_up: Optional[int] = tgi_queue_size_up
         self._tgi_queue_size_down: Optional[int] = tgi_queue_size_down
+        self._average_queue_time_up: Optional[float] = average_queue_time_up
+        self._average_queue_time_down: Optional[float] = average_queue_time_down
 
     @staticmethod
     def from_yaml_config(config: Dict[str, Any]) -> 'SkyServiceSpec':
@@ -176,6 +195,14 @@ class SkyServiceSpec:
                     'base_ondemand_fallback_replicas', None)
             service_config['dynamic_ondemand_fallback'] = policy_section.get(
                 'dynamic_ondemand_fallback', None)
+            service_config['tgi_queue_size_up'] = policy_section.get(
+                'tgi_queue_size_up', None)
+            service_config['tgi_queue_size_down'] = policy_section.get(
+                'tgi_queue_size_down', None)
+            service_config['average_queue_time_up'] = policy_section.get(
+                'average_queue_time_up', None)
+            service_config['average_queue_time_down'] = policy_section.get(
+                'average_queue_time_down', None)
 
         return SkyServiceSpec(**service_config)
 
@@ -230,9 +257,13 @@ class SkyServiceSpec:
         add_if_not_none('replica_policy', 'downscale_delay_seconds',
                         self.downscale_delay_seconds)
         add_if_not_none('replica_policy', 'tgi_queue_size_up',
-                        self.average_tgi_queue_size_up)
+                        self.tgi_queue_size_up)
         add_if_not_none('replica_policy', 'tgi_queue_size_down',
-                        self.average_tgi_queue_size_down)
+                        self.tgi_queue_size_down)
+        add_if_not_none('replica_policy', 'average_queue_time_up',
+                        self.average_queue_time_up)
+        add_if_not_none('replica_policy', 'average_queue_time_down',
+                        self.average_queue_time_down)
         
         return config
 
@@ -329,3 +360,11 @@ class SkyServiceSpec:
     @property
     def tgi_queue_size_down(self) -> Optional[int]:
         return self._tgi_queue_size_down
+    
+    @property
+    def average_queue_time_up(self) -> Optional[float]:
+        return self._average_queue_time_up
+    
+    @property
+    def average_queue_time_down(self) -> Optional[float]:
+        return self._average_queue_time_down
