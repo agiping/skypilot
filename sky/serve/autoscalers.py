@@ -101,6 +101,10 @@ class Autoscaler:
     ) -> List[AutoscalerDecision]:
         """Evaluate autoscale options based on replica information."""
         raise NotImplementedError
+    
+    def get_decision_interval(self) -> int:
+        """Get the interval between two autoscaling decisions."""
+        raise NotImplementedError
 
     @classmethod
     def from_spec(cls, service_name: str,
@@ -108,6 +112,8 @@ class Autoscaler:
         # TODO(MaoZiming): use NAME to get the class.
         if spec.use_ondemand_fallback:
             return FallbackRequestRateAutoscaler(service_name, spec)
+        elif (spec.tgi_queue_size_up is not None) or (spec.average_queue_time_up is not None):
+            return TgiQueueStateAutoscaler(service_name, spec)
         else:
             return RequestRateAutoscaler(service_name, spec)
 
@@ -565,74 +571,25 @@ class FallbackRequestRateAutoscaler(RequestRateAutoscaler):
         return scaling_options
 
 
-class TgiQueueSizeAutoscaler(Autoscaler):
-    """
-    We use the average queue size of all replicas to decide if autoscaling is needed.
-    This Policy is deprecated and has been replaced by TgiQueueStateAutoscaler in the bellow.
-    We keep this for testing purposes.
-    """
-    def __init__(self, service_name: str, spec: 'service_spec.SkyServiceSpec', threshold_up: float, threshold_down: float):
-        super().__init__(service_name, spec)
-        self.threshold_up = threshold_up
-        self.threshold_down = threshold_down
-        self.queue_sizes = []
-
-    def collect_queue_information(self, queue_info: Dict[str, List[int]]) -> None:
-        """Collect queue size information from replicas."""
-        self.queue_sizes = queue_info.get('queue_sizes', [])
-        logger.info(f'Collected queue sizes: {self.queue_sizes}')
-
-    def _calculate_target_num_replicas_based_on_queue_size(self) -> int:
-        if not self.queue_sizes:
-            return self.min_replicas
-        average_queue_size = sum(self.queue_sizes) / len(self.queue_sizes)
-        if average_queue_size > self.threshold_up:
-            return min(self.max_replicas, self.target_num_replicas + 1)
-        elif average_queue_size < self.threshold_down:
-            return max(self.min_replicas, self.target_num_replicas - 1)
-        return self.target_num_replicas
-
-    def evaluate_scaling(self, replica_infos: List['replica_managers.ReplicaInfo']) -> List[AutoscalerDecision]:
-        self.target_num_replicas = self._calculate_target_num_replicas_based_on_queue_size()
-        
-        scaling_decisions = []
-        current_replica_count = len([info for info in replica_infos if info.is_provisioning_or_launched])
-        
-        if current_replica_count < self.target_num_replicas:
-            # Scale up
-            for _ in range(self.target_num_replicas - current_replica_count):
-                scaling_decisions.append(AutoscalerDecision(AutoscalerDecisionOperator.SCALE_UP, None))
-        elif current_replica_count > self.target_num_replicas:
-            # Scale down
-            replicas_to_remove = current_replica_count - self.target_num_replicas
-            replica_ids = [info.replica_id for info in replica_infos if info.is_provisioning_or_launched]
-            for replica_id in sorted(replica_ids)[:replicas_to_remove]:
-                scaling_decisions.append(AutoscalerDecision(AutoscalerDecisionOperator.SCALE_DOWN, replica_id))
-                
-        return scaling_decisions
-
-    def dump_dynamic_states(self) -> Dict[str, Any]:
-        return {'queue_sizes': self.queue_sizes}
-
-    def load_dynamic_states(self, dynamic_states: Dict[str, Any]) -> None:
-        if 'queue_sizes' in dynamic_states:
-            self.queue_sizes = dynamic_states.pop('queue_sizes')
-        if dynamic_states:
-            logger.info(f'Remaining dynamic states: {dynamic_states}')
-
-
 class TgiQueueStateAutoscaler(Autoscaler):
     """Autoscaler based on the state of tgi queue"""
     def __init__(self, service_name: str,
                  spec: 'service_spec.SkyServiceSpec') -> None:
         super().__init__(service_name, spec)
-        self.min_replicas: Optional[int] = spec.min_replicas
-        self.max_replicas: Optional[int] = spec.max_replicas
-        self.tgi_queue_size_up = spec.tgi_queue_size_up
-        self.tgi_queue_size_down = spec.tgi_queue_size_down
-        self.average_queue_time_up = spec.average_queue_time_up
-        self.average_queue_time_down = spec.average_queue_time_down
-        #self.current_replicas = spec.min_replicas
+        self.upscale_counter: int = 0
+        self.downscale_counter: int = 0
+        # Threshold of tgi queue state
+        self.tgi_queue_size_up: Optional[int] = spec.tgi_queue_size_up
+        self.tgi_queue_size_down: Optional[int] = spec.tgi_queue_size_down
+        self.average_queue_time_up: Optional[float] = spec.average_queue_time_up
+        self.average_queue_time_down: Optional[float] = spec.average_queue_time_down
+        # Tgi queue state: 
+        #     average tgi_queue_size: e.g, 10
+        #     average tgi_queue_time: e.g, 600.0 milliseconds
+        # Example:
+        # {'average_tgi_queue_size': 10, 'average_tgi_queue_time': 600.0}
+        self.tgi_queue_state: Dict[str, Any] = {}
+
         upscale_delay_seconds = (
             spec.upscale_delay_seconds if spec.upscale_delay_seconds is not None
             else constants.AUTOSCALER_DEFAULT_UPSCALE_DELAY_SECONDS)
@@ -646,46 +603,215 @@ class TgiQueueStateAutoscaler(Autoscaler):
         self.scale_down_consecutive_periods: int = int(
             downscale_delay_seconds /
             constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS)
+    
+    def collect_tgi_queue_state(self, tgi_queue_state: Dict[str, Any]) -> None:
+        """Collect tgi queue state information from replicas."""
+        self.tgi_queue_state = tgi_queue_state
+        logger.info(f'Collected tgi queue state: {self.tgi_queue_state}')
 
-    def evaluate_scaling(self, tgi_queue_state: Dict[str, Any]) -> List[AutoscalerDecision]:
-        current_queue_size = tgi_queue_state.get('tgi_queue_size', 0)
-        average_wait_time = tgi_queue_state.get('average_wait_time', 0)
+    def _cal_target_num_replicas_based_on_queue_state(self, current_ready_count: int) -> int:
+        """
+        For scale up, we increase the number of replicas by 10% or at least 1 replica.
+        For scale down, we decrease the number of replicas by 1.
+        """
+        tgi_queue_state = self.tgi_queue_state
+        avg_tgi_qs = tgi_queue_state.get('average_tgi_queue_size', 0)
+        avg_tgi_qt = tgi_queue_state.get('average_tgi_queue_time', 0.0)
+        logger.info(f'Average TGI Queue Size: {avg_tgi_qs}, Average TGI Queue Time: {avg_tgi_qt} (ms)')
 
-        scaling_decisions = []
-        current_time = time.time()
-        # Evaluate need for scaling up
-        if (current_queue_size > self.tgi_queue_size_up or average_wait_time > self.average_wait_time_up):
-            if self.current_replicas < self.max_replicas and (current_time - self.last_scale_up_time > self.upscale_delay_seconds):
-                # Increase by 10% or at least 1 replica
-                increase_amount = max(int(self.current_replicas * 0.10), 1)
-                new_replicas = min(self.current_replicas + increase_amount, self.max_replicas)
-                scaling_decisions.append(AutoscalerDecision('SCALE_UP', None))
-                self.current_replicas = new_replicas
-                self.last_scale_up_time = current_time
+        # fast scale up
+        if avg_tgi_qs > self.tgi_queue_size_up or avg_tgi_qt > self.average_queue_time_up:
+            increase_amount = max(int(current_ready_count * 0.10), 1)
+            return min(self.max_replicas, current_ready_count + increase_amount)
+        # slow scale down
+        elif avg_tgi_qs < self.tgi_queue_size_down and avg_tgi_qt < self.average_queue_time_down:
+            return max(self.min_replicas, current_ready_count - 1)
 
-        # Evaluate need for scaling down
-        if (current_queue_size < self.average_wait_time_down and average_wait_time < self.average_wait_time_down):
-            if self.current_replicas > self.min_replicas and (current_time - self.last_scale_down_time > self.scale_down_delay):
-                # Decrease by 10% or at least 1 replica
-                decrease_amount = max(int(self.current_replicas * 0.10), 1)
-                new_replicas = max(self.current_replicas - decrease_amount, self.min_replicas)
-                # Assuming replica ids to remove are the highest ids
-                replica_ids_to_remove = list(range(new_replicas, self.current_replicas))
-                for replica_id in replica_ids_to_remove:
-                    scaling_decisions.append(AutoscalerDecision('SCALE_DOWN', replica_id))
-                self.current_replicas = new_replicas
-                self.last_scale_down_time = current_time
+    def _set_target_num_replica_with_hysteresis(self, current_ready_count: int) -> None:
+        """Set target_num_replicas based on tgi queue state with hysteresis."""
+        # Keep self.target_num_replicas unchange when autoscaling
+        # is not enabled, i.e. either self.tgi_queue_size_up or self.average_queue_time_up is None.
+        # In this case, self.target_num_replicas will be min_replicas.
+        if (self.tgi_queue_size_up is None) and (self.average_queue_time_up is None):
+            return
 
-        return scaling_decisions
-    # # Example usage:
-    # autoscaler = Autoscaler(min_replicas=2, max_replicas=10, tgi_queue_length_threshold_up=100, average_wait_time_threshold=1.0)
-    # traffic_patterns = [
-    #     {'queue_length': 150, 'average_wait_time': 1.2},
-    #     {'queue_length': 80, 'average_wait_time': 0.9},
-    #     {'queue_length': 30, 'average_wait_time': 0.4},
-    #     {'queue_length': 200, 'average_wait_time': 1.5},
-    # ]
+        target_num_replicas = self._cal_target_num_replicas_based_on_queue_state(current_ready_count)
+        old_target_num_replicas = self.target_num_replicas
 
-    # for pattern in traffic_patterns:
-    #     decisions = autoscaler.evaluate_scaling(pattern['queue_length'], pattern['average_wait_time'])
-    #     print(f"Decisions for Queue Length {pattern['queue_length']} and Average Wait Time {pattern['average_wait_time']}: {decisions}")
+        """
+        By controlling the consecutive periods, we can guarantee that the taget number of replicas
+        is updated only when it's necessary. This makes the execution of afterwards autoscaling stable.
+        """
+        # Faster scale up when there is no replica.
+        if self.target_num_replicas == 0:
+            self.target_num_replicas = target_num_replicas
+        elif target_num_replicas > self.target_num_replicas:
+            self.upscale_counter += 1
+            # when scale up, do not go scale down; thus, reset the downscale counter
+            self.downscale_counter = 0
+            # when consecutive periods reach the threshold, scale up, 
+            # i.e., set the self.target_num_replicas
+            # meanwhile, reset the upscale counter
+            if self.upscale_counter >= self.scale_up_consecutive_periods:
+                self.upscale_counter = 0
+                self.target_num_replicas = target_num_replicas
+        elif target_num_replicas < self.target_num_replicas:
+            self.downscale_counter += 1
+            self.upscale_counter = 0
+            if self.downscale_counter >= self.scale_down_consecutive_periods:
+                self.downscale_counter = 0
+                self.target_num_replicas = target_num_replicas
+        else:
+            self.upscale_counter = self.downscale_counter = 0
+
+        avg_tgi_queue_size = self.tgi_queue_state.get('average_tgi_queue_size', 0)
+        avg_tgi_queue_time = self.tgi_queue_state.get('average_tgi_queue_time', 0.0)
+
+        logger.info(
+            f'Average tgi queue size: {avg_tgi_queue_size}. '
+            f'Average tgi queue time: {avg_tgi_queue_time}. '
+            f'Current target number of replicas: {old_target_num_replicas}. '
+            f'Final target number of replicas: {self.target_num_replicas}. '
+            f'Upscale counter: {self.upscale_counter}/'
+            f'{self.scale_up_consecutive_periods}. '
+            f'Downscale counter: {self.downscale_counter}/'
+            f'{self.scale_down_consecutive_periods}')
+    
+    @classmethod
+    def _select_replicas_to_scale_down(
+        cls, 
+        num_limit: int,
+        replica_infos: Iterable['replica_managers.ReplicaInfo']
+    ) -> List[int]:
+
+        # PENDING -> PROVISIONING -> STARTING -> READY
+        status_order = serve_state.ReplicaStatus.scale_down_decision_order()
+        # Also sort by provisioned time (indicated by replica_id) to make sure
+        # we terminate the replicas that starts provisioning later first
+        replica_infos_sorted = sorted(
+            replica_infos,
+            key=lambda info: (
+                status_order.index(info.status)
+                # Use -1 for other status that will be terminated first.
+                # Including: NOT_READY, SHUTTING_DOWN, FAILED,
+                # FAILED_CLEANUP, PREEMPTED, UNKNOWN.
+                if info.status in status_order else -1,
+                # `-info.replica_id` is to furhter sort the replicas with the
+                # same state by the time it starts launching. In that case,
+                # if two replicas are both in PROVISIONING state, we will scale
+                # down the one that starts provisioning later, i.e., it will
+                # take a longer time for it to be READY.
+                -info.replica_id))
+
+        return [info.replica_id for info in replica_infos_sorted][:num_limit]
+    
+    def get_latest_version_with_min_replicas(
+        self, replica_infos: Iterable['replica_managers.ReplicaInfo']
+    ) -> Optional[int]:
+        # Find the latest version with at least min_replicas replicas.
+        version2count: DefaultDict[int, int] = collections.defaultdict(int)
+        for info in replica_infos:
+            if info.is_ready:
+                version2count[info.version] += 1
+
+        version = self.latest_version
+        while version >= constants.INITIAL_VERSION:
+            spec = serve_state.get_spec(self._service_name, version)
+            if (spec is not None and
+                    version2count[version] >= spec.min_replicas):
+                return version
+            version -= 1
+        return None
+
+    def select_outdated_replicas_to_scale_down(
+            self, replica_infos: Iterable['replica_managers.ReplicaInfo']
+    ) -> List[int]:
+
+        latest_version_with_min_replicas = (
+            self.get_latest_version_with_min_replicas(replica_infos))
+
+        # Select replicas earlier than latest_version_with_min_replicas to scale
+        # down.
+        all_replica_ids_to_scale_down: List[int] = []
+        for info in replica_infos:
+            if (latest_version_with_min_replicas is not None and
+                    info.version < latest_version_with_min_replicas):
+                all_replica_ids_to_scale_down.append(info.replica_id)
+
+        return all_replica_ids_to_scale_down
+    
+    def evaluate_scaling(
+        self,
+        replica_infos: List['replica_managers.ReplicaInfo']
+    ) -> List[AutoscalerDecision]:
+        """
+        Evaluate autoscale options based on tgi queue state.
+        Queue state: 
+            average tgi_queue_size
+            average tgi_queue_time
+        """
+        # [cls.PENDING, cls.PROVISIONING, cls.STARTING, cls.READY]
+        latest_provisioning_and_launched_replicas: List['replica_managers.ReplicaInfo'] = []
+        current_ready_replica_count = 0
+
+        for info in replica_infos:
+            if info.version == self.latest_version:
+                if info.is_provisioning_or_launched:
+                    latest_provisioning_and_launched_replicas.append(info)
+                    if info.is_ready:
+                        current_ready_replica_count += 1
+        
+        # We evaluate scaling based on the workload on the ready replicas.
+        self._set_target_num_replica_with_hysteresis(current_ready_replica_count)
+
+        scaling_options: List[AutoscalerDecision] = []
+        all_replica_ids_to_scale_down: List[int] = []
+
+        # Case 1. Once there is min_replicas number of
+        # ready new replicas, we will direct all traffic to them,
+        # we can scale down all old replicas.
+        # This case is for replica update performed by "sky serve update"
+        all_replica_ids_to_scale_down.extend(
+            self.select_outdated_replicas_to_scale_down(replica_infos))
+
+        # Case 2. when latest_provisioning_and_launched_replicas is less
+        # than the target_num_replicas, we always scale up new replicas.
+        if len(latest_provisioning_and_launched_replicas
+              ) < self.target_num_replicas:
+            num_replicas_to_scale_up = (
+                self.target_num_replicas -
+                len(latest_provisioning_and_launched_replicas))
+
+            for _ in range(num_replicas_to_scale_up):
+                scaling_options.append(
+                    AutoscalerDecision(AutoscalerDecisionOperator.SCALE_UP,
+                                       target=None))
+
+        # Case 3: when latest_provisioning_and_launched_replicas is more
+        # than the target_num_replicas, we scale down new replicas.
+        if len(latest_provisioning_and_launched_replicas
+              ) > self.target_num_replicas:
+            num_replicas_to_scale_down = (
+                len(latest_provisioning_and_launched_replicas) -
+                self.target_num_replicas)
+            all_replica_ids_to_scale_down.extend(
+                self._select_replicas_to_scale_down(
+                    num_limit=num_replicas_to_scale_down,
+                    replica_infos=latest_provisioning_and_launched_replicas))
+
+        for replica_id in all_replica_ids_to_scale_down:
+            scaling_options.append(
+                AutoscalerDecision(AutoscalerDecisionOperator.SCALE_DOWN,
+                                   target=replica_id))
+
+        if not scaling_options:
+            logger.info('No scaling needed.')
+        return scaling_options
+    
+    def get_decision_interval(self) -> int:
+        # Reduce autoscaler interval when target_num_replicas = 0.
+        # This will happen when min_replicas = 0 and no traffic.
+        if self.target_num_replicas == 0:
+            return constants.AUTOSCALER_NO_REPLICA_DECISION_INTERVAL_SECONDS
+        else:
+            return constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS
