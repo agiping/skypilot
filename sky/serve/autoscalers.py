@@ -113,8 +113,10 @@ class Autoscaler:
         if spec.use_ondemand_fallback:
             return FallbackRequestRateAutoscaler(service_name, spec)
         elif (spec.tgi_queue_size_up is not None) or (spec.average_queue_time_up is not None):
+            logger.info('SkyServe is using the Tgi Queue State Autoscaler.')
             return TgiQueueStateAutoscaler(service_name, spec)
         else:
+            logger.info('SkyServe is using the Request Rate Autoscaler.')
             return RequestRateAutoscaler(service_name, spec)
 
     def get_latest_version_with_min_replicas(
@@ -750,6 +752,7 @@ class TgiQueueStateAutoscaler(Autoscaler):
             average tgi_queue_size
             average tgi_queue_time
         """
+        logger.info(f"TgiQueueStateAutoscaler: Evaluating autoscale options based on tgi queue state.")
         # [cls.PENDING, cls.PROVISIONING, cls.STARTING, cls.READY]
         latest_provisioning_and_launched_replicas: List['replica_managers.ReplicaInfo'] = []
         current_ready_replica_count = 0
