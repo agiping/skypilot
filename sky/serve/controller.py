@@ -148,6 +148,10 @@ class SkyServeController:
                 self._replica_manager.update_version(version, service)
                 new_autoscaler = autoscalers.Autoscaler.from_spec(
                     self._service_name, service)
+                # The below code is to keep the dynamic states of the old
+                # autoscaler. This is only used for configuration change 
+                # between RequestRateAutoscaler and FallbackRequestRateAutoscaler.
+                # TODO(PingZhang): We will support update between any autoscalers.
                 if not isinstance(self._autoscaler, type(new_autoscaler)):
                     old_autoscaler = self._autoscaler
                     self._autoscaler = new_autoscaler

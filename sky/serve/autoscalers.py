@@ -820,3 +820,40 @@ class TgiQueueStateAutoscaler(Autoscaler):
             return constants.AUTOSCALER_NO_REPLICA_DECISION_INTERVAL_SECONDS
         else:
             return constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS
+    
+    def dump_dynamic_states(self) -> Dict[str, Any]:
+        return {
+            'tgi_queue_state': self.tgi_queue_state,
+        }
+
+    def load_dynamic_states(self, dynamic_states: Dict[str, Any]) -> None:
+        if 'tgi_queue_state' in dynamic_states:
+            self.tgi_queue_state = dynamic_states.pop('tgi_queue_state')
+        if dynamic_states:
+            logger.info(f'Remaining dynamic states: {dynamic_states}')
+    
+    def update_version(self, version: int,
+                       spec: 'service_spec.SkyServiceSpec') -> None:
+        super().update_version(version, spec)
+        self.tgi_queue_size_up = spec.tgi_queue_size_up
+        self.tgi_queue_size_down = spec.tgi_queue_size_down
+        self.average_queue_time_up = spec.average_queue_time_up
+        self.average_queue_time_down = spec.average_queue_time_down
+
+        upscale_delay_seconds = (
+            spec.upscale_delay_seconds if spec.upscale_delay_seconds is not None
+            else constants.AUTOSCALER_DEFAULT_UPSCALE_DELAY_SECONDS)
+        self.scale_up_consecutive_periods = int(
+            upscale_delay_seconds /
+            constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS)
+        downscale_delay_seconds = (
+            spec.downscale_delay_seconds
+            if spec.downscale_delay_seconds is not None else
+            constants.AUTOSCALER_DEFAULT_DOWNSCALE_DELAY_SECONDS)
+        self.scale_down_consecutive_periods = int(
+            downscale_delay_seconds /
+            constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS)
+
+        # Cleanup hysteretic counters.
+        self.upscale_counter = 0
+        self.downscale_counter = 0
