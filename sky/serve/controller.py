@@ -109,11 +109,9 @@ class SkyServeController:
 
             # TODO(MaoZiming): Check aggregator type.
             replica_infos = serve_state.get_replica_infos(self._service_name)
-            request_aggregator: Dict[str, Any] = request_data.get(
-                'request_aggregator', {})
-            timestamps: List[int] = request_aggregator.get('timestamps', [])
-            logger.info(f'Received {len(timestamps)} inflight requests.')
-            self._autoscaler.collect_request_information(request_aggregator)
+            metric_aggregator: Dict[str, Any] = request_data.get(
+                'metric_aggregator', {})
+            self._autoscaler.collect_scheduler_information(metric_aggregator)
 
             ready_replicas = list(
                 filter(lambda info: info.is_ready, replica_infos))

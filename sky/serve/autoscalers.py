@@ -90,9 +90,9 @@ class Autoscaler:
         self.target_num_replicas = max(
             self.min_replicas, min(self.max_replicas, self.target_num_replicas))
 
-    def collect_request_information(
-            self, request_aggregator_info: Dict[str, Any]) -> None:
-        """Collect request information from aggregator for autoscaling."""
+    def collect_scheduler_information(
+            self, metric_aggregator_info: Dict[str, Any]) -> None:
+        """Collect metric information from aggregator for autoscaling."""
         raise NotImplementedError
 
     def evaluate_scaling(
@@ -213,7 +213,7 @@ class RequestRateAutoscaler(Autoscaler):
         self.upscale_counter = 0
         self.downscale_counter = 0
 
-    def collect_request_information(
+    def collect_scheduler_information(
             self, request_aggregator_info: Dict[str, Any]) -> None:
         """Collect request information from aggregator for autoscaling.
 
@@ -223,8 +223,9 @@ class RequestRateAutoscaler(Autoscaler):
             'timestamps': [timestamp1 (float), timestamp2 (float), ...]
         }
         """
-        self.request_timestamps.extend(
-            request_aggregator_info.get('timestamps', []))
+        timestamps: List[int] = request_aggregator_info.get('timestamps', [])
+        logger.info(f'Received {len(timestamps)} inflight requests.')
+        self.request_timestamps.extend(timestamps)
         
         # In the LB-HA framework, multiple load balancer instances will send request info
         # to the controller. We need to sort the timestamps to calculate the QPS correctly.
@@ -606,7 +607,8 @@ class TgiQueueStateAutoscaler(Autoscaler):
             downscale_delay_seconds /
             constants.AUTOSCALER_DEFAULT_DECISION_INTERVAL_SECONDS)
     
-    def collect_tgi_queue_state(self, tgi_queue_state: Dict[str, Any]) -> None:
+    def collect_scheduler_information(
+            self, tgi_queue_state: Dict[str, Any]) -> None:
         """Collect tgi queue state information from replicas."""
         self.tgi_queue_state = tgi_queue_state
         logger.info(f'Collected tgi queue state: {self.tgi_queue_state}')
